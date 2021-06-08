@@ -2,42 +2,63 @@
 title: "ABC inference for Normal mean and variance"
 author: "Paul Blischak"
 output:
-  pdf_document: default
   html_document:
     theme: cosmo
+  pdf_document: default
 ---
 
 ## **Regular ABC algorithm**
 
+The main steps for conducting parameter inference using ABC are to simulate data
+from prior distributions for the parameters of interest, followed by comparing
+this simulated data to the observed data to determine how similar they are.
+Parameters values from the prior that produce data that are similar to the observed
+data can then be saved and form an approximated posterior distribution for those
+parameters.
+
+In the example below, we have 30 observations from a Normal distribution with unknown
+mean and variance. To infer these unknown parameters, we will use ABC to simulate
+data that can be compared to our observed data and will save the parameter values
+that produce the closest matching data sets. To compare simulated data sets and our
+observed data, we sort the data and use the Euclidean distance.
+
+We use uninformative, uniform distributions as priors for both of the mean and
+variance and simulate 50,000 data sets to compare with our observed data. After
+comparing with the observed data, we keep the parameters for the 100 simulated data
+sets that produce data that is most similar to our observed data. These 100 samples
+of the mean and variance can be considered draws from their approximate posterior
+distributions.
+
 ```{r}
 normal_start_time <- proc.time()
-# Read in the data and sort it
+# Step 1: Read in the data and sort it
 dat <- as.vector(read.table("data.txt",header=F))
 dat <- sort(dat[,1])
 
-# Set up number of simulations and number of parameters to save
+# Step 2: Set up number of simulations and number of parameters to save
 reps <- 50000
 save <- 100
 dist_vals <- rep(NA,reps)
 
-# Draw values from the prior distributions
+# Step 3: Draw values from the prior distributions
 tmp_mean <- runif(reps, -20, 20)
 tmp_variance <- runif(reps, 0, 50)
 
-# Loop through the prior values, simulate data and compare to observed data
+# Step 3: Loop through the prior values, simulate data and compare to observed data
+# using the Euclidean distance
 for(i in 1:reps){
   tmp_dat <- rnorm(length(dat), tmp_mean[i], sqrt(tmp_variance[i]))
   tmp_dat <- sort(tmp_dat)
   dist_vals[i] <- dist(rbind(dat,tmp_dat))
 }
 
-# Sort distance values (summary stat)
+# Step 4: Sort distance values (summary stat) and keep the indexes
 dist_indexes <- sort(dist_vals, index.return=T)
 
-# Get the top values based on the number of parameter values you want to save
+# Step 5: Get the indexes of the top values based on the number of parameter values you want to save
 save_indexes <- dist_indexes$ix[1:save]
 
-# Get the corresponding parameter values with the lowest distances from the observed data
+# Step 6: Get the corresponding parameter values with the lowest distances from the observed data
 saved_means <- tmp_mean[save_indexes]
 saved_variances <- tmp_variance[save_indexes]
 normal_total_time <- proc.time() - normal_start_time
@@ -58,6 +79,9 @@ abline(v=mean(saved_variances),col="blue",lty="dashed",lwd=2)
 ```
 
 ## **ABC--Sequential Monte Carlo algorithm**
+
+The setup for this example is the same as above, except that we use a sequential
+Monte Carlo algorithm with 5 rounds of sampling.
 
 ```{r}
 sequential_start_time <- proc.time()
